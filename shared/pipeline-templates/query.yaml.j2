@@ -1,0 +1,41 @@
+components:
+  - name: text_embedder
+    type: SentenceTransformersTextEmbedder
+    params:
+      model: {{ embedder_model }}
+      {% if normalize_embeddings %}normalize_embeddings: true{% endif %}
+
+  - name: retriever
+    type: OpenSearchEmbeddingRetriever
+    params:
+      hosts: ["{{ opensearch_host }}"]
+      index: {{ index_name }}
+      top_k: {{ top_k }}
+
+  - name: prompt_builder
+    type: PromptBuilder
+    params:
+      template: |
+        Context information is below:
+        {% raw %}
+        {% for doc in documents %}
+        ---
+        {{ doc.content }}
+        {% endfor %}
+        {% endraw %}
+        ---
+        Query: {% raw %}{{ query }}{% endraw %}
+
+connections:
+  - sender: text_embedder
+    receiver: retriever.query_embedding
+  - sender: retriever
+    receiver: prompt_builder.documents
+
+inputs:
+  query: text_embedder.text
+  query_text: prompt_builder.query
+
+outputs:
+  documents: retriever.documents
+  prompt: prompt_builder.prompt

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo create:*)",
+      "Bash(tree:*)",
+      "Bash(./backend/venv/bin/pip install -r backend/requirements.txt)",
+      "Bash(./venv/bin/pip install:*)",
+      "Bash(python3.12 -m venv:*)",
+      "Bash(python3.11 -m venv:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)"
+    ]
+  }
+}

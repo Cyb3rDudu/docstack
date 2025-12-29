@@ -1,0 +1,66 @@
+components:
+  - name: file_router
+    type: FileTypeRouter
+    params:
+      mime_types:
+        - application/pdf
+        - text/plain
+        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+  - name: pdf_converter
+    type: PyPDFToDocument
+
+  - name: txt_converter
+    type: TextFileToDocument
+
+  - name: docx_converter
+    type: DOCXToDocument
+
+  - name: joiner
+    type: DocumentJoiner
+
+  - name: splitter
+    type: DocumentSplitter
+    params:
+      split_by: {{ split_by }}
+      split_length: {{ split_length }}
+      split_overlap: {{ split_overlap }}
+
+  - name: embedder
+    type: SentenceTransformersDocumentEmbedder
+    params:
+      model: {{ embedder_model }}
+      {% if normalize_embeddings %}normalize_embeddings: true{% endif %}
+      {% if batch_size %}batch_size: {{ batch_size }}{% endif %}
+
+  - name: writer
+    type: OpenSearchDocumentWriter
+    params:
+      hosts: ["{{ opensearch_host }}"]
+      index: {{ index_name }}
+
+connections:
+  - sender: file_router.application/pdf
+    receiver: pdf_converter.sources
+  - sender: file_router.text/plain
+    receiver: txt_converter.sources
+  - sender: file_router.application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    receiver: docx_converter.sources
+  - sender: pdf_converter
+    receiver: joiner
+  - sender: txt_converter
+    receiver: joiner
+  - sender: docx_converter
+    receiver: joiner
+  - sender: joiner
+    receiver: splitter
+  - sender: splitter
+    receiver: embedder
+  - sender: embedder
+    receiver: writer
+
+inputs:
+  files: file_router.sources
+
+outputs:
+  documents: writer.documents
