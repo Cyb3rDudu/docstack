@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root {
+@theme {
   --color-background: oklch(100% 0 0);
   --color-foreground: oklch(15% 0.02 285);
   --color-card: oklch(100% 0 0);
@@ -24,7 +24,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  @theme {
     --color-background: oklch(15% 0.02 285);
     --color-foreground: oklch(98% 0 0);
     --color-card: oklch(15% 0.02 285);
