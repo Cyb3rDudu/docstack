@@ -1,8 +1,30 @@
-export default function Home() {
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/stores/authStore";
+
+export default function HomePage() {
+  const router = useRouter();
+  const { user, checkAuth } = useAuthStore();
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (user) {
+      router.push("/dashboard");
+    } else {
+      router.push("/login");
+    }
+  }, [user, router]);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold">DocStack</h1>
-      <p className="mt-4 text-lg">RAG Document Management System</p>
-    </main>
-  )
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold">Loading...</h1>
+      </div>
+    </div>
+  );
 }
