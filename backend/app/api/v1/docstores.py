@@ -328,3 +328,111 @@ def reindex_docstore(
         "docstore_id": docstore_id,
         "status": "pending"
     }
+
+
+@router.get("/models/embedding")
+def list_embedding_models(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List available embedding models with their dimensions
+    """
+    models = [
+        {
+            "id": "BAAI/bge-large-en-v1.5",
+            "name": "BGE Large EN v1.5",
+            "dimension": 1024,
+            "description": "High quality, larger model (1024 dims)"
+        },
+        {
+            "id": "BAAI/bge-base-en-v1.5",
+            "name": "BGE Base EN v1.5",
+            "dimension": 768,
+            "description": "Balanced performance and size (768 dims)"
+        },
+        {
+            "id": "BAAI/bge-small-en-v1.5",
+            "name": "BGE Small EN v1.5",
+            "dimension": 384,
+            "description": "Fast and lightweight (384 dims)"
+        },
+        {
+            "id": "sentence-transformers/all-MiniLM-L6-v2",
+            "name": "MiniLM L6 v2",
+            "dimension": 384,
+            "description": "Popular lightweight model (384 dims)"
+        },
+        {
+            "id": "sentence-transformers/all-mpnet-base-v2",
+            "name": "MPNet Base v2",
+            "dimension": 768,
+            "description": "High quality general purpose (768 dims)"
+        },
+        {
+            "id": "intfloat/e5-large-v2",
+            "name": "E5 Large v2",
+            "dimension": 1024,
+            "description": "State-of-the-art embeddings (1024 dims)"
+        },
+        {
+            "id": "intfloat/e5-base-v2",
+            "name": "E5 Base v2",
+            "dimension": 768,
+            "description": "Efficient and accurate (768 dims)"
+        }
+    ]
+    return {"models": models}
+
+
+@router.get("/chunking-strategies")
+def list_chunking_strategies(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List available chunking strategies
+    """
+    strategies = [
+        {
+            "value": "sentence",
+            "label": "Sentence-based (Semantic)",
+            "description": "Split by sentence boundaries - best for semantic coherence",
+            "recommended_chunk_size": 3,
+            "recommended_overlap": 1,
+            "size_unit": "sentences"
+        },
+        {
+            "value": "word",
+            "label": "Word-based (Fixed)",
+            "description": "Split by word count - precise control over chunk size",
+            "recommended_chunk_size": 200,
+            "recommended_overlap": 20,
+            "size_unit": "words"
+        },
+        {
+            "value": "passage",
+            "label": "Passage-based (Semantic)",
+            "description": "Split by paragraph boundaries - preserves larger context",
+            "recommended_chunk_size": 2,
+            "recommended_overlap": 1,
+            "size_unit": "passages"
+        }
+    ]
+    return {"strategies": strategies}
+
+
+@router.get("/pipelines/hayhooks")
+def list_hayhooks_pipelines(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all pipelines currently deployed in hayhooks
+    """
+    result = hayhooks_deployer.get_all_pipelines()
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch hayhooks pipelines: {result.get('error')}"
+        )
+
+    return result.get("data", {})

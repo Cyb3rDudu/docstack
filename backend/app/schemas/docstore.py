@@ -10,26 +10,26 @@ class DocstoreBase(BaseModel):
 
 
 class DocstoreCreate(DocstoreBase):
-    """Schema for creating a new docstore with semantic chunking configuration"""
+    """Schema for creating a new docstore with chunking configuration"""
     embedding_model: str = Field(
         ...,
-        description="Sentence transformer model for embeddings (e.g., 'sentence-transformers/all-MiniLM-L6-v2')"
+        description="Sentence transformer model for embeddings (e.g., 'BAAI/bge-large-en-v1.5', 'sentence-transformers/all-MiniLM-L6-v2')"
+    )
+    split_by: str = Field(
+        default="sentence",
+        description="Chunking strategy: 'word' (fixed word count), 'sentence' (semantic by sentence), 'passage' (semantic by paragraph)"
     )
     chunk_size: int = Field(
         ...,
-        ge=50,
+        ge=1,
         le=1000,
-        description="Chunk size for splitting (number of sentences/words)"
+        description="Number of units per chunk (words, sentences, or passages depending on split_by)"
     )
     chunk_overlap: int = Field(
         ...,
         ge=0,
         le=500,
-        description="Overlap between chunks"
-    )
-    split_by: Optional[str] = Field(
-        default="sentence",
-        description="Split by: 'sentence', 'word', or 'passage'"
+        description="Number of units to overlap between chunks"
     )
 
 
