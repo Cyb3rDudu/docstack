@@ -21,6 +21,7 @@ class PipelineGenerator:
 
     def generate_indexing_pipeline(
         self,
+        docstore_name: str,
         index_name: str,
         embedder_model: str = "BAAI/bge-large-en-v1.5",
         split_by: str = "sentence",
@@ -34,6 +35,7 @@ class PipelineGenerator:
         Generate indexing pipeline YAML
 
         Args:
+            docstore_name: Human-readable docstore name
             index_name: OpenSearch index name
             embedder_model: HuggingFace model ID
             split_by: Splitting method (sentence, word, passage)
@@ -46,9 +48,12 @@ class PipelineGenerator:
         Returns:
             Generated YAML content as string
         """
+        from datetime import datetime
+
         template = self.env.get_template("indexing.yaml.j2")
 
         context = {
+            "docstore_name": docstore_name,
             "index_name": index_name,
             "embedder_model": embedder_model,
             "split_by": split_by,
@@ -56,15 +61,18 @@ class PipelineGenerator:
             "split_overlap": split_overlap,
             "normalize_embeddings": normalize_embeddings,
             "batch_size": batch_size,
-            "opensearch_host": opensearch_host
+            "opensearch_host": opensearch_host,
+            "embedding_dim": self.get_embedding_dimension(embedder_model),
+            "timestamp": datetime.utcnow().isoformat()
         }
 
         yaml_content = template.render(**context)
-        logger.info(f"Generated indexing pipeline for index {index_name}")
+        logger.info(f"Generated indexing pipeline for {docstore_name} (index: {index_name})")
         return yaml_content
 
     def generate_query_pipeline(
         self,
+        docstore_name: str,
         index_name: str,
         embedder_model: str = "BAAI/bge-large-en-v1.5",
         top_k: int = 10,
@@ -75,6 +83,7 @@ class PipelineGenerator:
         Generate query pipeline YAML
 
         Args:
+            docstore_name: Human-readable docstore name
             index_name: OpenSearch index name
             embedder_model: HuggingFace model ID (must match indexing)
             top_k: Number of documents to retrieve
@@ -84,18 +93,23 @@ class PipelineGenerator:
         Returns:
             Generated YAML content as string
         """
+        from datetime import datetime
+
         template = self.env.get_template("query.yaml.j2")
 
         context = {
+            "docstore_name": docstore_name,
             "index_name": index_name,
             "embedder_model": embedder_model,
             "top_k": top_k,
             "normalize_embeddings": normalize_embeddings,
-            "opensearch_host": opensearch_host
+            "opensearch_host": opensearch_host,
+            "embedding_dim": self.get_embedding_dimension(embedder_model),
+            "timestamp": datetime.utcnow().isoformat()
         }
 
         yaml_content = template.render(**context)
-        logger.info(f"Generated query pipeline for index {index_name}")
+        logger.info(f"Generated query pipeline for {docstore_name} (index: {index_name})")
         return yaml_content
 
     def get_embedding_dimension(self, model_name: str) -> int:

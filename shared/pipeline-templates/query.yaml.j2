@@ -1,41 +1,36 @@
+# Query Pipeline for {{ docstore_name|default('Docstore') }}
+# Generated: {{ timestamp|default('') }}
+# Index: {{ index_name }}
+# Model: {{ embedder_model }}
+# Top-K: {{ top_k }}
+
 components:
-  - name: text_embedder
-    type: SentenceTransformersTextEmbedder
-    params:
+  # Text embedder (same model as indexing)
+  - name: embedder
+    type: haystack.components.embedders.SentenceTransformersTextEmbedder
+    init_parameters:
       model: {{ embedder_model }}
-      {% if normalize_embeddings %}normalize_embeddings: true{% endif %}
+      normalize_embeddings: {{ normalize_embeddings|lower }}
+      progress_bar: false
+      device: cpu
 
+  # Embedding retriever from OpenSearch
   - name: retriever
-    type: OpenSearchEmbeddingRetriever
-    params:
-      hosts: ["{{ opensearch_host }}"]
-      index: {{ index_name }}
+    type: haystack_integrations.components.retrievers.opensearch.OpenSearchEmbeddingRetriever
+    init_parameters:
+      document_store:
+        type: haystack_integrations.document_stores.opensearch.OpenSearchDocumentStore
+        init_parameters:
+          hosts:
+            - {{ opensearch_host }}
+          index: {{ index_name }}
+          embedding_dim: {{ embedding_dim|default(768) }}
+          use_ssl: false
+          verify_certs: false
       top_k: {{ top_k }}
+      filters: null
 
-  - name: prompt_builder
-    type: PromptBuilder
-    params:
-      template: |
-        Context information is below:
-        {% raw %}
-        {% for doc in documents %}
-        ---
-        {{ doc.content }}
-        {% endfor %}
-        {% endraw %}
-        ---
-        Query: {% raw %}{{ query }}{% endraw %}
-
+# Pipeline connections
 connections:
-  - sender: text_embedder
+  - sender: embedder.embedding
     receiver: retriever.query_embedding
-  - sender: retriever
-    receiver: prompt_builder.documents
-
-inputs:
-  query: text_embedder.text
-  query_text: prompt_builder.query
-
-outputs:
-  documents: retriever.documents
-  prompt: prompt_builder.prompt

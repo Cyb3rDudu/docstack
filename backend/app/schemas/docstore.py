@@ -6,12 +6,31 @@ from uuid import UUID
 
 class DocstoreBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    slug: str = Field(..., min_length=1, max_length=100, pattern="^[a-z0-9-]+$")
     description: Optional[str] = None
 
 
 class DocstoreCreate(DocstoreBase):
-    pass
+    """Schema for creating a new docstore with semantic chunking configuration"""
+    embedding_model: str = Field(
+        ...,
+        description="Sentence transformer model for embeddings (e.g., 'sentence-transformers/all-MiniLM-L6-v2')"
+    )
+    chunk_size: int = Field(
+        ...,
+        ge=50,
+        le=1000,
+        description="Chunk size for splitting (number of sentences/words)"
+    )
+    chunk_overlap: int = Field(
+        ...,
+        ge=0,
+        le=500,
+        description="Overlap between chunks"
+    )
+    split_by: Optional[str] = Field(
+        default="sentence",
+        description="Split by: 'sentence', 'word', or 'passage'"
+    )
 
 
 class DocstoreUpdate(BaseModel):
@@ -21,6 +40,7 @@ class DocstoreUpdate(BaseModel):
 
 class DocstoreResponse(DocstoreBase):
     id: UUID
+    slug: str
     index_name: str
     created_by: UUID
     document_count: int

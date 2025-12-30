@@ -3,14 +3,29 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 import time
+import re
 
 from app.database import get_db
-from app.models import User, Docstore
+from app.models import User, Docstore, ModelConfig, Pipeline
 from app.schemas import DocstoreCreate, DocstoreUpdate, DocstoreResponse, DocstoreStats
 from app.core.auth import get_current_user
 from app.services.opensearch import opensearch_service
+from app.services.pipeline_generator import pipeline_generator
+from app.services.hayhooks_deployer import hayhooks_deployer
 
 router = APIRouter(prefix="/docstores", tags=["docstores"])
+
+
+def generate_slug(name: str) -> str:
+    """Generate URL-safe slug from docstore name"""
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+    return slug
+
+
+def generate_index_name(slug: str) -> str:
+    """Generate unique OpenSearch index name with timestamp"""
+    timestamp = int(time.time())
+    return f"docstack-{slug}-{timestamp}"
 
 
 @router.get("/", response_model=List[DocstoreResponse])
@@ -32,45 +47,144 @@ def create_docstore(
     db: Session = Depends(get_db)
 ):
     """
-    Create a new docstore
+    Create a new document store with semantic chunking
 
-    - Generates unique index name with timestamp
-    - Creates OpenSearch index with knn_vector mapping
-    - Stores metadata in PostgreSQL
+    Complete flow:
+    1. Generate slug from name
+    2. Create OpenSearch index with knn_vector mapping
+    3. Generate indexing and query pipeline YAML files
+    4. Deploy pipelines to hayhooks via SSH
+    5. Save docstore, model_config, and pipelines to PostgreSQL
     """
+    # 1. Generate slug and index name
+    slug = generate_slug(docstore_data.name)
+    index_name = generate_index_name(slug)
+
     # Check if slug already exists
-    existing = db.query(Docstore).filter(Docstore.slug == docstore_data.slug).first()
+    existing = db.query(Docstore).filter(Docstore.slug == slug).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Docstore with slug '{docstore_data.slug}' already exists"
+            detail=f"Docstore with slug '{slug}' already exists. Please choose a different name."
         )
 
-    # Generate unique index name with timestamp
-    timestamp = int(time.time())
-    index_name = f"docstack-{docstore_data.slug}-{timestamp}"
+    # 2. Get embedding dimension and create OpenSearch index
+    embedding_dim = pipeline_generator.get_embedding_dimension(docstore_data.embedding_model)
 
-    # Create OpenSearch index (default embedding dimension: 1024 for bge-large)
-    if not opensearch_service.create_index(index_name, embedding_dim=1024):
+    try:
+        if not opensearch_service.create_index(index_name, embedding_dim=embedding_dim):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create OpenSearch index"
+            )
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create OpenSearch index"
+            detail=f"Failed to create OpenSearch index: {str(e)}"
         )
 
-    # Create docstore in database
-    docstore = Docstore(
-        name=docstore_data.name,
-        slug=docstore_data.slug,
-        description=docstore_data.description,
-        index_name=index_name,
-        created_by=current_user.id
-    )
+    # 3. Generate pipeline YAML files
+    try:
+        indexing_yaml = pipeline_generator.generate_indexing_pipeline(
+            docstore_name=docstore_data.name,
+            index_name=index_name,
+            embedder_model=docstore_data.embedding_model,
+            split_by=docstore_data.split_by or "sentence",
+            split_length=docstore_data.chunk_size,
+            split_overlap=docstore_data.chunk_overlap
+        )
 
-    db.add(docstore)
-    db.commit()
-    db.refresh(docstore)
+        query_yaml = pipeline_generator.generate_query_pipeline(
+            docstore_name=docstore_data.name,
+            index_name=index_name,
+            embedder_model=docstore_data.embedding_model,
+            top_k=10
+        )
+    except Exception as e:
+        # Rollback: delete OpenSearch index
+        opensearch_service.delete_index(index_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate pipeline YAML: {str(e)}"
+        )
 
-    return docstore
+    # 4. Deploy pipelines to hayhooks
+    try:
+        hayhooks_deployer.deploy_pipelines(slug, indexing_yaml, query_yaml)
+    except Exception as e:
+        # Rollback: delete OpenSearch index
+        opensearch_service.delete_index(index_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to deploy pipelines to hayhooks: {str(e)}"
+        )
+
+    # 5. Save to database (transaction)
+    try:
+        # Create docstore
+        docstore = Docstore(
+            name=docstore_data.name,
+            slug=slug,
+            description=docstore_data.description,
+            index_name=index_name,
+            created_by=current_user.id
+        )
+        db.add(docstore)
+        db.flush()  # Get docstore.id without committing
+
+        # Create model config
+        model_config = ModelConfig(
+            docstore_id=docstore.id,
+            embedder_model=docstore_data.embedding_model,
+            embedder_settings={"normalize": True, "batch_size": 32},
+            splitter_type=docstore_data.split_by or "sentence",
+            split_length=docstore_data.chunk_size,
+            split_overlap=docstore_data.chunk_overlap,
+            is_active=True
+        )
+        db.add(model_config)
+
+        # Save indexing pipeline
+        indexing_pipeline = Pipeline(
+            docstore_id=docstore.id,
+            name=f"{slug}_indexing",
+            pipeline_type="indexing",
+            yaml_content=indexing_yaml,
+            version=1,
+            is_active=True,
+            deployed=True,
+            created_by=current_user.id
+        )
+        db.add(indexing_pipeline)
+
+        # Save query pipeline
+        query_pipeline = Pipeline(
+            docstore_id=docstore.id,
+            name=f"{slug}_query",
+            pipeline_type="query",
+            yaml_content=query_yaml,
+            version=1,
+            is_active=True,
+            deployed=True,
+            created_by=current_user.id
+        )
+        db.add(query_pipeline)
+
+        # Commit all changes
+        db.commit()
+        db.refresh(docstore)
+
+        return docstore
+
+    except Exception as e:
+        db.rollback()
+        # Rollback: delete index and pipelines
+        opensearch_service.delete_index(index_name)
+        hayhooks_deployer.delete_pipelines(slug)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save docstore to database: {str(e)}"
+        )
 
 
 @router.get("/{docstore_id}", response_model=DocstoreResponse)

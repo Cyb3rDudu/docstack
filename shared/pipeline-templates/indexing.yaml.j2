@@ -1,66 +1,99 @@
+# Indexing Pipeline for {{ docstore_name|default('Docstore') }}
+# Generated: {{ timestamp|default('') }}
+# Index: {{ index_name }}
+# Model: {{ embedder_model }}
+# Chunking: {{ split_by }} (length={{ split_length }}, overlap={{ split_overlap }})
+
 components:
-  - name: file_router
-    type: FileTypeRouter
-    params:
+  # Route files by type (TXT, PDF, DOCX)
+  - name: file_type_router
+    type: haystack.components.routers.FileTypeRouter
+    init_parameters:
       mime_types:
-        - application/pdf
         - text/plain
+        - application/pdf
         - application/vnd.openxmlformats-officedocument.wordprocessingml.document
 
-  - name: pdf_converter
-    type: PyPDFToDocument
+  # Converters for each file type
+  - name: text_file_converter
+    type: haystack.components.converters.TextFileToDocument
+    init_parameters:
+      encoding: utf-8
 
-  - name: txt_converter
-    type: TextFileToDocument
+  - name: pdf_converter
+    type: haystack.components.converters.PyPDFToDocument
 
   - name: docx_converter
-    type: DOCXToDocument
+    type: haystack.components.converters.DOCXToDocument
 
+  # Join documents from different converters
   - name: joiner
-    type: DocumentJoiner
+    type: haystack.components.joiners.DocumentJoiner
+    init_parameters:
+      join_mode: concatenate
 
+  # Semantic chunking/splitting
   - name: splitter
-    type: DocumentSplitter
-    params:
+    type: haystack.components.preprocessors.DocumentSplitter
+    init_parameters:
       split_by: {{ split_by }}
       split_length: {{ split_length }}
       split_overlap: {{ split_overlap }}
+      split_threshold: 0
 
+  # Document embedder (sentence transformers)
   - name: embedder
-    type: SentenceTransformersDocumentEmbedder
-    params:
+    type: haystack.components.embedders.SentenceTransformersDocumentEmbedder
+    init_parameters:
       model: {{ embedder_model }}
-      {% if normalize_embeddings %}normalize_embeddings: true{% endif %}
-      {% if batch_size %}batch_size: {{ batch_size }}{% endif %}
+      normalize_embeddings: {{ normalize_embeddings|lower }}
+      batch_size: {{ batch_size }}
+      progress_bar: false
+      device: cpu
 
+  # Write to OpenSearch
   - name: writer
-    type: OpenSearchDocumentWriter
-    params:
-      hosts: ["{{ opensearch_host }}"]
-      index: {{ index_name }}
+    type: haystack_integrations.components.writers.opensearch.OpenSearchDocumentWriter
+    init_parameters:
+      document_store:
+        type: haystack_integrations.document_stores.opensearch.OpenSearchDocumentStore
+        init_parameters:
+          hosts:
+            - {{ opensearch_host }}
+          index: {{ index_name }}
+          embedding_dim: {{ embedding_dim|default(768) }}
+          create_index: false
+          use_ssl: false
+          verify_certs: false
 
+# Pipeline connections (DAG)
 connections:
-  - sender: file_router.application/pdf
+  # File routing
+  - sender: file_type_router.text/plain
+    receiver: text_file_converter.sources
+
+  - sender: file_type_router.application/pdf
     receiver: pdf_converter.sources
-  - sender: file_router.text/plain
-    receiver: txt_converter.sources
-  - sender: file_router.application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+  - sender: file_type_router.application/vnd.openxmlformats-officedocument.wordprocessingml.document
     receiver: docx_converter.sources
-  - sender: pdf_converter
-    receiver: joiner
-  - sender: txt_converter
-    receiver: joiner
-  - sender: docx_converter
-    receiver: joiner
-  - sender: joiner
-    receiver: splitter
-  - sender: splitter
-    receiver: embedder
-  - sender: embedder
-    receiver: writer
 
-inputs:
-  files: file_router.sources
+  # Converters to joiner
+  - sender: text_file_converter.documents
+    receiver: joiner.documents
 
-outputs:
-  documents: writer.documents
+  - sender: pdf_converter.documents
+    receiver: joiner.documents
+
+  - sender: docx_converter.documents
+    receiver: joiner.documents
+
+  # Processing chain
+  - sender: joiner.documents
+    receiver: splitter.documents
+
+  - sender: splitter.documents
+    receiver: embedder.documents
+
+  - sender: embedder.documents
+    receiver: writer.documents

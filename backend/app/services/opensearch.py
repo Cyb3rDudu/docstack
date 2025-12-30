@@ -18,13 +18,14 @@ class OpenSearchService:
             ssl_show_warn=False,
         )
 
-    def create_index(self, index_name: str, embedding_dim: int = 1024) -> bool:
+    def create_index(self, index_name: str, embedding_dim: int = 1024, ef_search: int = 512) -> bool:
         """
         Create an OpenSearch index with knn_vector mapping for embeddings
 
         Args:
             index_name: Name of the index to create
             embedding_dim: Dimension of the embedding vectors
+            ef_search: ef_search parameter for knn (default: 512)
 
         Returns:
             True if created successfully, False otherwise
@@ -33,7 +34,7 @@ class OpenSearchService:
             "settings": {
                 "index": {
                     "knn": True,
-                    "knn.algo_param.ef_search": 100
+                    "knn.algo_param.ef_search": ef_search
                 },
                 "number_of_shards": 1,
                 "number_of_replicas": 0
@@ -47,18 +48,15 @@ class OpenSearchService:
                         "method": {
                             "name": "hnsw",
                             "space_type": "cosinesimil",
-                            "engine": "lucene",
+                            "engine": "nmslib",
                             "parameters": {
-                                "ef_construction": 128,
-                                "m": 24
+                                "ef_construction": 512,
+                                "m": 16
                             }
                         }
                     },
-                    "metadata": {"type": "object", "enabled": True},
-                    "source_id": {"type": "keyword"},
-                    "file_name": {"type": "keyword"},
-                    "page_number": {"type": "integer"},
-                    "chunk_id": {"type": "keyword"}
+                    "meta": {"type": "object", "enabled": True},
+                    "id": {"type": "keyword"}
                 }
             }
         }
