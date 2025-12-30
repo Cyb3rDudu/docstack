@@ -114,31 +114,109 @@ class ApiClient {
   }
 
   // Docstore endpoints
-  async getDocstores() {
+  async getDocstores(): Promise<any[]> {
     return this.request("/api/v1/docstores/");
   }
 
-  async createDocstore(data: any) {
+  async createDocstore(data: any): Promise<any> {
     return this.request("/api/v1/docstores/", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async getDocstore(id: string) {
+  async getDocstore(id: string): Promise<any> {
     return this.request(`/api/v1/docstores/${id}`);
   }
 
-  async updateDocstore(id: string, data: any) {
+  async updateDocstore(id: string, data: any): Promise<any> {
     return this.request(`/api/v1/docstores/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  async deleteDocstore(id: string) {
+  async deleteDocstore(id: string): Promise<void> {
     return this.request(`/api/v1/docstores/${id}`, {
       method: "DELETE",
+    });
+  }
+
+  // Document endpoints
+  async getDocuments(docstoreId: string): Promise<any[]> {
+    return this.request(`/api/v1/docstores/${docstoreId}/documents/`);
+  }
+
+  async uploadDocuments(docstoreId: string, files: File[]): Promise<any> {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/api/v1/docstores/${docstoreId}/documents/upload`,
+      {
+        method: "POST",
+        headers,
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: `HTTP error! status: ${response.status}`,
+      }));
+      throw new Error(error.detail || "Document upload failed");
+    }
+
+    return response.json();
+  }
+
+  async getDocument(documentId: string): Promise<any> {
+    return this.request(`/api/v1/documents/${documentId}`);
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    return this.request(`/api/v1/documents/${documentId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Pipeline endpoints
+  async getPipelines(docstoreId: string): Promise<any[]> {
+    return this.request(`/api/v1/docstores/${docstoreId}/pipelines/`);
+  }
+
+  async createPipeline(docstoreId: string, pipelineType: string): Promise<any> {
+    return this.request(`/api/v1/docstores/${docstoreId}/pipelines/generate`, {
+      method: "POST",
+      body: JSON.stringify({ pipeline_type: pipelineType }),
+    });
+  }
+
+  async deployPipeline(pipelineId: string): Promise<any> {
+    return this.request(`/api/v1/pipelines/${pipelineId}/deploy`, {
+      method: "POST",
+    });
+  }
+
+  // Query endpoints
+  async queryDocstore(docstoreId: string, query: string, topK: number = 5): Promise<any> {
+    return this.request(`/api/v1/docstores/${docstoreId}/query`, {
+      method: "POST",
+      body: JSON.stringify({ query, top_k: topK }),
+    });
+  }
+
+  async queryMultiDocstores(docstoreIds: string[], query: string, topK: number = 5): Promise<any> {
+    return this.request(`/api/v1/query/multi`, {
+      method: "POST",
+      body: JSON.stringify({ docstore_ids: docstoreIds, query, top_k: topK }),
     });
   }
 }
