@@ -5,11 +5,11 @@
 # Chunking: {{ split_by }} (length={{ split_length }}, overlap={{ split_overlap }})
 
 inputs:
-  - name: files
+  files:
     type: List[ByteStream]
 
 outputs:
-  - name: documents_written
+  documents_written:
     type: int
 
 components:
