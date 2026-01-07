@@ -63,7 +63,7 @@ components:
       document_store:
         type: haystack_integrations.document_stores.opensearch.OpenSearchDocumentStore
         init_parameters:
-          hosts: ["{{ opensearch_host }}"]
+          hosts: "{{ opensearch_host }}"
           index: "{{ index_name }}"
           embedding_dim: {{ embedding_dim|default(768) }}
           create_index: false
