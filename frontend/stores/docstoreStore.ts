@@ -22,10 +22,10 @@ export interface Docstore {
 export interface CreateDocstoreData {
   name: string;
   description?: string;
-  embedding_model?: string;
-  chunking_strategy?: string;
-  chunk_size?: number;
-  chunk_overlap?: number;
+  embedding_model: string;
+  split_by: string;
+  chunk_size: number;
+  chunk_overlap: number;
 }
 
 interface DocstoreState {

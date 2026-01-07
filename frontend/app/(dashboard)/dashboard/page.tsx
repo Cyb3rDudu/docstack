@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { useDocstoreStore } from "@/stores/docstoreStore";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +26,15 @@ export default function DashboardPage() {
   const { user, logout, checkAuth } = useAuthStore();
   const { docstores, isLoading, error, fetchDocstores, createDocstore, clearError } = useDocstoreStore();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [embeddingModels, setEmbeddingModels] = useState<any[]>([]);
+  const [chunkingStrategies, setChunkingStrategies] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    embedding_model: "sentence-transformers/all-MiniLM-L6-v2",
-    chunking_strategy: "sentence",
-    chunk_size: 200,
-    chunk_overlap: 20,
+    embedding_model: "BAAI/bge-base-en-v1.5",
+    split_by: "sentence",
+    chunk_size: 3,
+    chunk_overlap: 1,
   });
 
   useEffect(() => {
@@ -42,8 +46,26 @@ export default function DashboardPage() {
       router.push("/login");
     } else {
       fetchDocstores();
+      fetchModelsAndStrategies();
     }
   }, [user, router, fetchDocstores]);
+
+  const fetchModelsAndStrategies = async () => {
+    try {
+      const [modelsRes, strategiesRes] = await Promise.all([
+        api.getEmbeddingModels(),
+        api.getChunkingStrategies()
+      ]);
+      setEmbeddingModels(modelsRes.models || []);
+      setChunkingStrategies(strategiesRes.strategies || []);
+    } catch (error) {
+      console.error("Failed to fetch models/strategies:", error);
+    }
+  };
+
+  const getSelectedStrategy = () => {
+    return chunkingStrategies.find(s => s.value === formData.split_by);
+  };
 
   const handleCreateDocstore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,13 +77,25 @@ export default function DashboardPage() {
       setFormData({
         name: "",
         description: "",
-        embedding_model: "sentence-transformers/all-MiniLM-L6-v2",
-        chunking_strategy: "sentence",
-        chunk_size: 200,
-        chunk_overlap: 20,
+        embedding_model: "BAAI/bge-base-en-v1.5",
+        split_by: "sentence",
+        chunk_size: 3,
+        chunk_overlap: 1,
       });
     } catch (error) {
       console.error("Failed to create docstore:", error);
+    }
+  };
+
+  const handleStrategyChange = (value: string) => {
+    const strategy = chunkingStrategies.find(s => s.value === value);
+    if (strategy) {
+      setFormData({
+        ...formData,
+        split_by: value,
+        chunk_size: strategy.recommended_chunk_size,
+        chunk_overlap: strategy.recommended_overlap,
+      });
     }
   };
 
@@ -172,28 +206,58 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="embedding_model">Embedding Model</Label>
-                    <Input
+                    <Select
                       id="embedding_model"
-                      placeholder="sentence-transformers/all-MiniLM-L6-v2"
                       value={formData.embedding_model}
                       onChange={(e) => setFormData({ ...formData, embedding_model: e.target.value })}
-                    />
+                    >
+                      {embeddingModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name} - {model.description}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="split_by">Chunking Strategy</Label>
+                    <Select
+                      id="split_by"
+                      value={formData.split_by}
+                      onChange={(e) => handleStrategyChange(e.target.value)}
+                    >
+                      {chunkingStrategies.map((strategy) => (
+                        <option key={strategy.value} value={strategy.value}>
+                          {strategy.label} - {strategy.description}
+                        </option>
+                      ))}
+                    </Select>
+                    {getSelectedStrategy() && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {getSelectedStrategy()?.description}
+                      </p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="chunk_size">Chunk Size</Label>
+                      <Label htmlFor="chunk_size">
+                        Chunk Size ({getSelectedStrategy()?.size_unit || "units"})
+                      </Label>
                       <Input
                         id="chunk_size"
                         type="number"
+                        min="1"
                         value={formData.chunk_size}
                         onChange={(e) => setFormData({ ...formData, chunk_size: parseInt(e.target.value) })}
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="chunk_overlap">Chunk Overlap</Label>
+                      <Label htmlFor="chunk_overlap">
+                        Chunk Overlap ({getSelectedStrategy()?.size_unit || "units"})
+                      </Label>
                       <Input
                         id="chunk_overlap"
                         type="number"
+                        min="0"
                         value={formData.chunk_overlap}
                         onChange={(e) => setFormData({ ...formData, chunk_overlap: parseInt(e.target.value) })}
                       />

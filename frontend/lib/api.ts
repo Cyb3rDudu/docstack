@@ -118,6 +118,18 @@ class ApiClient {
     return this.request("/api/v1/docstores/");
   }
 
+  async getEmbeddingModels(): Promise<any> {
+    return this.request("/api/v1/docstores/models/embedding");
+  }
+
+  async getChunkingStrategies(): Promise<any> {
+    return this.request("/api/v1/docstores/chunking-strategies");
+  }
+
+  async getHayhooksPipelines(): Promise<any> {
+    return this.request("/api/v1/docstores/pipelines/hayhooks");
+  }
+
   async createDocstore(data: any): Promise<any> {
     return this.request("/api/v1/docstores/", {
       method: "POST",
