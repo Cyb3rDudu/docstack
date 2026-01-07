@@ -5,12 +5,10 @@
 # Chunking: {{ split_by }} (length={{ split_length }}, overlap={{ split_overlap }})
 
 inputs:
-  files:
-    type: List[ByteStream]
+  files: file_type_router.sources
 
 outputs:
-  documents_written:
-    type: int
+  documents_written: writer.documents_written
 
 components:
   # Route files by type (TXT, PDF, DOCX)
@@ -72,9 +70,6 @@ components:
 
 # Pipeline connections (DAG)
 connections:
-  # Pipeline inputs
-  - sender: self.files
-    receiver: file_type_router.sources
   # File routing
   - sender: file_type_router.text/plain
     receiver: text_file_converter.sources
@@ -105,6 +100,4 @@ connections:
   - sender: embedder.documents
     receiver: writer.documents
 
-  # Pipeline outputs
-  - sender: writer.documents_written
-    receiver: self.documents_written
+max_runs_per_component: 100
