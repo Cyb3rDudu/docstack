@@ -42,6 +42,8 @@ class DocstoreResponse(DocstoreBase):
     id: UUID
     slug: str
     index_name: str
+    embedding_model: Optional[str] = None
+    chunking_strategy: Optional[str] = None
     created_by: UUID
     document_count: int
     chunk_count: int

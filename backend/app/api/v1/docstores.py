@@ -37,7 +37,21 @@ def list_docstores(
 ):
     """List all docstores"""
     docstores = db.query(Docstore).filter(Docstore.is_active == True).offset(skip).limit(limit).all()
-    return docstores
+
+    # Enrich with model config data
+    result = []
+    for docstore in docstores:
+        docstore_dict = docstore.__dict__.copy()
+        model_config = db.query(ModelConfig).filter(
+            ModelConfig.docstore_id == docstore.id,
+            ModelConfig.is_active == True
+        ).first()
+        if model_config:
+            docstore_dict['embedding_model'] = model_config.embedder_model
+            docstore_dict['chunking_strategy'] = model_config.splitter_type
+        result.append(docstore_dict)
+
+    return result
 
 
 @router.post("/", response_model=DocstoreResponse, status_code=status.HTTP_201_CREATED)
@@ -174,7 +188,12 @@ def create_docstore(
         db.commit()
         db.refresh(docstore)
 
-        return docstore
+        # Enrich with model config data
+        docstore_dict = docstore.__dict__.copy()
+        docstore_dict['embedding_model'] = docstore_data.embedding_model
+        docstore_dict['chunking_strategy'] = docstore_data.split_by
+
+        return docstore_dict
 
     except Exception as e:
         db.rollback()
@@ -309,7 +328,17 @@ def get_docstore(
             detail="Docstore not found"
         )
 
-    return docstore
+    # Enrich with model config data
+    docstore_dict = docstore.__dict__.copy()
+    model_config = db.query(ModelConfig).filter(
+        ModelConfig.docstore_id == docstore.id,
+        ModelConfig.is_active == True
+    ).first()
+    if model_config:
+        docstore_dict['embedding_model'] = model_config.embedder_model
+        docstore_dict['chunking_strategy'] = model_config.splitter_type
+
+    return docstore_dict
 
 
 @router.get("/{docstore_id}/stats", response_model=DocstoreStats)
@@ -372,7 +401,17 @@ def update_docstore(
     db.commit()
     db.refresh(docstore)
 
-    return docstore
+    # Enrich with model config data
+    docstore_dict = docstore.__dict__.copy()
+    model_config = db.query(ModelConfig).filter(
+        ModelConfig.docstore_id == docstore.id,
+        ModelConfig.is_active == True
+    ).first()
+    if model_config:
+        docstore_dict['embedding_model'] = model_config.embedder_model
+        docstore_dict['chunking_strategy'] = model_config.splitter_type
+
+    return docstore_dict
 
 
 @router.delete("/{docstore_id}", status_code=status.HTTP_204_NO_CONTENT)
