@@ -17,10 +17,7 @@ components:
   - name: file_type_router
     type: haystack.components.routers.FileTypeRouter
     init_parameters:
-      mime_types:
-        - text/plain
-        - application/pdf
-        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      mime_types: ["text/plain", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
 
   # Converters for each file type
   - name: text_file_converter
