@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -27,10 +27,11 @@ class PipelineResponse(PipelineBase):
     created_by: UUID
     version: int
     is_active: bool
-    deployed: bool
+    deployed: bool = Field(..., serialization_alias='is_deployed')
     deployed_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+        populate_by_name = True

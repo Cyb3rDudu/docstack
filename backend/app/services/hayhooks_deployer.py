@@ -261,6 +261,48 @@ class HayhooksDeployer:
                 "error": str(e)
             }
 
+    def query_pipeline(self, slug: str, query: str, top_k: int = 10) -> Dict[str, Any]:
+        """
+        Run a query against the deployed query pipeline
+
+        Args:
+            slug: Docstore slug
+            query: Query string
+            top_k: Number of results to return
+
+        Returns:
+            Query results from hayhooks
+
+        Raises:
+            Exception if query fails
+        """
+        try:
+            pipeline_name = f"{slug}_query"
+
+            response = requests.post(
+                f"{self.base_url}/{pipeline_name}",
+                json={
+                    "query": query,
+                    "top_k": top_k
+                },
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                raise Exception(
+                    f"Failed to query pipeline: "
+                    f"{response.status_code} - {response.text}"
+                )
+
+            return response.json()
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"HTTP request failed while querying {slug}: {e}")
+            raise Exception(f"Failed to connect to hayhooks: {e}")
+        except Exception as e:
+            logger.error(f"Failed to query pipeline for {slug}: {e}")
+            raise
+
 
 # Singleton instance
 hayhooks_deployer = HayhooksDeployer()

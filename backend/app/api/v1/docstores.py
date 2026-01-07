@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict
 from datetime import datetime
 import time
 import re
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models import User, Docstore, ModelConfig, Pipeline
@@ -475,3 +476,40 @@ def reindex_docstore(
         "docstore_id": docstore_id,
         "status": "pending"
     }
+
+
+class QueryRequest(BaseModel):
+    query: str
+    top_k: int = 10
+
+
+@router.post("/{docstore_id}/query")
+def query_docstore(
+    docstore_id: str,
+    request: QueryRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Query documents in a docstore using the deployed query pipeline
+    """
+    docstore = db.query(Docstore).filter(Docstore.id == docstore_id).first()
+    if not docstore:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Docstore not found"
+        )
+
+    try:
+        # Call hayhooks query pipeline
+        result = hayhooks_deployer.query_pipeline(
+            slug=docstore.slug,
+            query=request.query,
+            top_k=request.top_k
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to query docstore: {str(e)}"
+        )
