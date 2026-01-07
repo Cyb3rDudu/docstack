@@ -45,8 +45,7 @@ class HayhooksDeployer:
                     "name": indexing_name,
                     "source_code": indexing_yaml,
                     "description": f"Indexing pipeline for {slug}",
-                    "overwrite": False,
-                    "save_file": True
+                    "overwrite": False
                 },
                 timeout=30
             )
@@ -67,8 +66,7 @@ class HayhooksDeployer:
                     "name": query_name,
                     "source_code": query_yaml,
                     "description": f"Query pipeline for {slug}",
-                    "overwrite": False,
-                    "save_file": True
+                    "overwrite": False
                 },
                 timeout=30
             )
@@ -214,8 +212,7 @@ class HayhooksDeployer:
                     "name": pipeline_name,
                     "source_code": yaml_content,
                     "description": f"{pipeline_type.capitalize()} pipeline for {slug}",
-                    "overwrite": True,  # Allow overwriting for updates
-                    "save_file": True
+                    "overwrite": True  # Allow overwriting for updates
                 },
                 timeout=30
             )

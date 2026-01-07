@@ -108,7 +108,7 @@ export default function DocstoreDetailPage() {
     if (!confirm("Are you sure you want to delete this document?")) return;
 
     try {
-      await api.deleteDocument(documentId);
+      await api.deleteDocument(docstoreId, documentId);
       await loadDocstoreData();
     } catch (error) {
       console.error("Delete failed:", error);

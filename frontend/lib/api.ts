@@ -171,7 +171,7 @@ class ApiClient {
     }
 
     const response = await fetch(
-      `${this.baseUrl}/api/v1/docstores/${docstoreId}/documents/upload`,
+      `${this.baseUrl}/api/v1/docstores/${docstoreId}/documents/`,
       {
         method: "POST",
         headers,
@@ -189,12 +189,12 @@ class ApiClient {
     return response.json();
   }
 
-  async getDocument(documentId: string): Promise<any> {
-    return this.request(`/api/v1/documents/${documentId}`);
+  async getDocument(docstoreId: string, documentId: string): Promise<any> {
+    return this.request(`/api/v1/docstores/${docstoreId}/documents/${documentId}`);
   }
 
-  async deleteDocument(documentId: string): Promise<void> {
-    return this.request(`/api/v1/documents/${documentId}`, {
+  async deleteDocument(docstoreId: string, documentId: string): Promise<void> {
+    return this.request(`/api/v1/docstores/${docstoreId}/documents/${documentId}`, {
       method: "DELETE",
     });
   }
