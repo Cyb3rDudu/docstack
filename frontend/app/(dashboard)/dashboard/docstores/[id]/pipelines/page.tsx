@@ -16,7 +16,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Rocket, FileCode, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Rocket, FileCode, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { DashboardNav } from "@/components/DashboardNav";
 
 interface Pipeline {
   id: string;
@@ -132,23 +133,11 @@ export default function PipelinesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="border-b bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/dashboard/docstores/${docstoreId}`)}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-              <h1 className="text-xl font-bold">{currentDocstore.name} - Pipelines</h1>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav
+        title={`${currentDocstore.name} - Pipelines`}
+        backPath={`/dashboard/docstores/${docstoreId}`}
+        backLabel={currentDocstore.name}
+      />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">

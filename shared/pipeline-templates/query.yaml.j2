@@ -4,6 +4,14 @@
 # Model: {{ embedder_model }}
 # Top-K: {{ top_k }}
 
+inputs:
+  - name: query
+    type: str
+
+outputs:
+  - name: documents
+    type: List[Document]
+
 components:
   # Text embedder (same model as indexing)
   - name: embedder
@@ -32,5 +40,13 @@ components:
 
 # Pipeline connections
 connections:
+  # Pipeline inputs
+  - sender: self.query
+    receiver: embedder.text
+
   - sender: embedder.embedding
     receiver: retriever.query_embedding
+
+  # Pipeline outputs
+  - sender: retriever.documents
+    receiver: self.documents

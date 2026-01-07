@@ -270,26 +270,26 @@ def list_chunking_strategies(
     """
     strategies = [
         {
+            "value": "word",
+            "label": "Word-based (~1000 tokens)",
+            "description": "Split by word count - recommended for balanced chunks",
+            "recommended_chunk_size": 1000,
+            "recommended_overlap": 200,
+            "size_unit": "words"
+        },
+        {
             "value": "sentence",
             "label": "Sentence-based (Semantic)",
             "description": "Split by sentence boundaries - best for semantic coherence",
-            "recommended_chunk_size": 3,
-            "recommended_overlap": 1,
+            "recommended_chunk_size": 10,
+            "recommended_overlap": 2,
             "size_unit": "sentences"
-        },
-        {
-            "value": "word",
-            "label": "Word-based (Fixed)",
-            "description": "Split by word count - precise control over chunk size",
-            "recommended_chunk_size": 200,
-            "recommended_overlap": 20,
-            "size_unit": "words"
         },
         {
             "value": "passage",
             "label": "Passage-based (Semantic)",
             "description": "Split by paragraph boundaries - preserves larger context",
-            "recommended_chunk_size": 2,
+            "recommended_chunk_size": 3,
             "recommended_overlap": 1,
             "size_unit": "passages"
         }

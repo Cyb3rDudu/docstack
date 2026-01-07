@@ -4,6 +4,14 @@
 # Model: {{ embedder_model }}
 # Chunking: {{ split_by }} (length={{ split_length }}, overlap={{ split_overlap }})
 
+inputs:
+  - name: files
+    type: List[ByteStream]
+
+outputs:
+  - name: documents_written
+    type: int
+
 components:
   # Route files by type (TXT, PDF, DOCX)
   - name: file_type_router
@@ -68,6 +76,9 @@ components:
 
 # Pipeline connections (DAG)
 connections:
+  # Pipeline inputs
+  - sender: self.files
+    receiver: file_type_router.sources
   # File routing
   - sender: file_type_router.text/plain
     receiver: text_file_converter.sources
@@ -97,3 +108,7 @@ connections:
 
   - sender: embedder.documents
     receiver: writer.documents
+
+  # Pipeline outputs
+  - sender: writer.documents_written
+    receiver: self.documents_written

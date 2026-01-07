@@ -16,7 +16,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft,
   Upload,
   FileText,
   Trash2,
@@ -25,6 +24,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import { DashboardNav } from "@/components/DashboardNav";
 
 interface Document {
   id: string;
@@ -173,30 +173,20 @@ export default function DocstoreDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="border-b bg-white">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/dashboard")}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-              <h1 className="text-xl font-bold">{currentDocstore.name}</h1>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/dashboard/docstores/${docstoreId}/pipelines`)}
-            >
-              Manage Pipelines
-            </Button>
-          </div>
-        </div>
-      </nav>
+      <DashboardNav
+        title={currentDocstore.name}
+        backPath="/dashboard"
+        backLabel="Dashboard"
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/dashboard/docstores/${docstoreId}/pipelines`)}
+          >
+            Manage Pipelines
+          </Button>
+        }
+      />
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 grid gap-6 md:grid-cols-4">
