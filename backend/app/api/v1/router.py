@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, docstores, documents, pipelines
+from app.api.v1 import auth, docstores, documents, pipelines, query
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -9,3 +9,4 @@ api_router.include_router(docstores.router)
 api_router.include_router(documents.router)
 api_router.include_router(pipelines.router)
 api_router.include_router(pipelines.standalone_router)
+api_router.include_router(query.router)
