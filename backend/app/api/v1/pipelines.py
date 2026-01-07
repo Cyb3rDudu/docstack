@@ -8,8 +8,10 @@ from app.models import User, Docstore, Pipeline, PipelineType, ModelConfig
 from app.schemas import PipelineCreate, PipelineUpdate, PipelineResponse
 from app.core.auth import get_current_user
 from app.services.pipeline_generator import pipeline_generator
+from app.services.hayhooks_deployer import hayhooks_deployer
 
 router = APIRouter(prefix="/docstores/{docstore_id}/pipelines", tags=["pipelines"])
+standalone_router = APIRouter(prefix="/pipelines", tags=["pipelines"])
 
 
 @router.get("/", response_model=List[PipelineResponse])
@@ -236,9 +238,6 @@ def deploy_pipeline(
 ):
     """
     Deploy a pipeline to Hayhooks
-
-    TODO: Implement SSH deployment to container 112
-    For now, returns accepted status
     """
     pipeline = db.query(Pipeline).filter(
         Pipeline.id == pipeline_id,
@@ -251,17 +250,75 @@ def deploy_pipeline(
             detail="Pipeline not found"
         )
 
-    # TODO: Implement SSH deployment via paramiko
-    # Write pipeline YAML to /opt/hayhooks/pipelines/{docstore_slug}/{pipeline_type}.yaml
-    # Hayhooks will auto-detect and deploy
+    # Get docstore
+    docstore = db.query(Docstore).filter(Docstore.id == docstore_id).first()
 
-    # For now, mark as deployed
-    pipeline.deployed = True
-    pipeline.deployed_at = datetime.utcnow()
-    db.commit()
+    try:
+        # Deploy via hayhooks HTTP API
+        hayhooks_deployer.update_pipeline(
+            slug=docstore.slug,
+            pipeline_type=pipeline.pipeline_type.lower(),
+            yaml_content=pipeline.yaml_content
+        )
 
-    return {
-        "message": "Pipeline deployment started",
-        "pipeline_id": pipeline_id,
-        "status": "deployed"
-    }
+        # Mark as deployed
+        pipeline.deployed = True
+        pipeline.deployed_at = datetime.utcnow()
+        db.commit()
+
+        return {
+            "message": "Pipeline deployed successfully",
+            "pipeline_id": pipeline_id,
+            "status": "deployed"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to deploy pipeline: {str(e)}"
+        )
+
+
+# Standalone pipeline routes (without docstore_id in path)
+@standalone_router.post("/{pipeline_id}/deploy", status_code=status.HTTP_202_ACCEPTED)
+def deploy_pipeline_standalone(
+    pipeline_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Deploy a pipeline to Hayhooks (standalone endpoint)
+    """
+    pipeline = db.query(Pipeline).filter(Pipeline.id == pipeline_id).first()
+
+    if not pipeline:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pipeline not found"
+        )
+
+    # Get docstore
+    docstore = db.query(Docstore).filter(Docstore.id == pipeline.docstore_id).first()
+
+    try:
+        # Deploy via hayhooks HTTP API
+        hayhooks_deployer.update_pipeline(
+            slug=docstore.slug,
+            pipeline_type=pipeline.pipeline_type.lower(),
+            yaml_content=pipeline.yaml_content
+        )
+
+        # Mark as deployed
+        pipeline.deployed = True
+        pipeline.deployed_at = datetime.utcnow()
+        db.commit()
+
+        return {
+            "message": "Pipeline deployed successfully",
+            "pipeline_id": pipeline_id,
+            "status": "deployed"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to deploy pipeline: {str(e)}"
+        )
